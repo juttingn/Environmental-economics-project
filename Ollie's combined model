@@ -1,0 +1,67 @@
+(*Model A with middle class proportion*)
+middleClassProportion2000 = 0.04;
+middleClassProportion2020 = 0.29;
+growthRate = 
+  Log[middleClassProportion2020/middleClassProportion2000]/20;
+middleClassProportion[t_] := 
+  middleClassProportion2000*Exp[growthRate*(t - 2000)];
+
+modelA = {BeefDemand'[t] == (0.02 - 0.02 BeefDemand[t])*
+     middleClassProportion[t], 
+   SoyDemand'[t] == (0.003 - 0.005 SoyDemand[t])*
+     middleClassProportion[t], BeefDemand[2000] == 0.2, 
+   SoyDemand[2000] == 0.3};
+solA = NDSolve[modelA, {BeefDemand, SoyDemand}, {t, 2000, 2030}];
+BeefDemandSol[t_] = BeefDemand[t] /. solA[[1]];
+SoyDemandSol[t_] = SoyDemand[t] /. solA[[1]];
+
+(*Plotting the results*)
+beefAndSoyDemandPlot = 
+  Plot[{BeefDemandSol[t], SoyDemandSol[t]}, {t, 2000, 2030}, 
+   PlotLegends -> {"Beef", "Soy"}];
+middleClassProportionPlot = 
+  Plot[middleClassProportion[t], {t, 2000, 2030}, 
+   PlotLabel -> "Middle Class Proportion"];
+Grid[{{beefAndSoyDemandPlot}, {middleClassProportionPlot}}]
+
+
+
+
+
+(*Model B*)
+initialStock = 1;
+emissionRate = 0.01;
+taxRate = 0.3;
+periods = 31;
+
+outputList = {initialStock};
+emissionsList = {initialStock*
+    emissionRate*(1 - taxRate)*(BeefDemandSol[2000] + 
+      SoyDemandSol[2000])};
+gainsList = {0};
+
+Do[prevOutput = outputList[[-1]];
+ prevEmissions = emissionsList[[-1]];
+ prevGains = gainsList[[-1]];
+ combinedDemand = BeefDemandSol[2000 + t] + SoyDemandSol[2000 + t];
+ newOutput = prevOutput - prevEmissions;
+ newEmissions = newOutput*emissionRate*(1 - taxRate)*combinedDemand;
+ newGains = prevGains + prevEmissions - newEmissions;
+ AppendTo[outputList, newOutput];
+ AppendTo[emissionsList, newEmissions];
+ AppendTo[gainsList, newGains];, {t, 1, periods - 1}]
+
+beefAndSoyDemandPlot = 
+  Plot[{BeefDemandSol[t], SoyDemandSol[t]}, {t, 2000, 2030}, 
+   PlotLegends -> {"Beef", "Soy"}];
+gainsPlot = 
+  ListLinePlot[gainsList, PlotRange -> All, 
+   PlotLabel -> "Gains over time"];
+emissionsPlot = 
+  ListLinePlot[emissionsList, PlotRange -> All, 
+   PlotLabel -> "Emissions over time"];
+outputPlot = 
+  ListLinePlot[outputList, PlotRange -> All, 
+   PlotLabel -> "Output over time"];
+
+Grid[{{beefAndSoyDemandPlot}, {gainsPlot, emissionsPlot, outputPlot}}]
