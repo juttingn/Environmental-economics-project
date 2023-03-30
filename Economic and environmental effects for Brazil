@@ -51,35 +51,139 @@ ListLinePlot[{TimeSeriesWindow[ts, {1961, 2020}],
   "Evolution of Soybean Yield in Brazil between 1960 and 2050", 
  PlotStyle -> {Automatic, Dashed}]
  
- (* Now we repeat this process for beef production*)
+ (* Now we repeat this process for beef production. This is less \
+sraightforward as there is less data available and we therefore have \
+to combine information from different datasets to consruct an \
+approximation of the animals per hectare. Relevant info :  animals \
+per hectare increased 1.97 % a year \
+(https://academic.oup.com/af/article/1/2/46/4638615#198768453)from \
+1970 to 2006; average productivity of 65 kg per hectare per year \
+(https://www.bain.com/insights/brazils-path-to-sustainable-cattle-\
+farming/#:~:text=That%20explains%20Brazil's%20average%20stocking,\
+kilograms%20per%20hectare%20per%20year.); In 2018,there were 215 \
+million cows grazing on 162 million hectares (or 19% of its land \
+mass) (https://www.amnesty.org/en/latest/news/2019/11/brazil-facts-\
+and-figures-behind-illegal-cattle-farms-fuelling-amazon-rainforest-\
+destruction/#:~:text=Brazil%20has%20more%20cows%20than,size%20as%20a%\
+20football%20pitch.) 
+We will need to convert the demand for beef into number of cows to \
+get the necessary land for beef products*)
+
+referenceYear = 2018;
+initialCattlePerHectare = 215/162;
+growthRate = 1.0197;
+
+cattlePerHectare[year_] := 
+  initialCattlePerHectare*growthRate^(year - referenceYear);
+
+historicalCattleDataYears = Range[1970, 2018];
+historicalCattleProductivity = 
+  cattlePerHectare /@ historicalCattleDataYears;
+
+projectedYears = Range[2019, 2050];
+projectedCattleProductivity = cattlePerHectare /@ projectedYears;
+
+combinedCattleProductivity = 
+  Join[historicalCattleProductivity, projectedCattleProductivity];
+combinedYears = Join[historicalCattleDataYears, projectedYears];
+
+tsCattle = 
+  TimeSeries[Transpose[{combinedYears, combinedCattleProductivity}]];
+
+ListLinePlot[{TimeSeriesWindow[tsCattle, {1970, 2018}], 
+  TimeSeriesWindow[tsCattle, {2019, 2050}]}, 
+ PlotLegends -> {"Historical Cattle Productivity", 
+   "Projected Cattle Productivity"}, Frame -> True, 
+ FrameLabel -> {"Year", "Animals per hectare"}, 
+ PlotLabel -> 
+  "Evolution of Cattle Productivity in Brazil between 1970 and 2050", 
+ PlotStyle -> {Automatic, Dashed}]
 
 
+(*Below we outline how we will calculate the annual total deforested \
+area, distinguishing between deforestation rates and demand for \
+soybeans and cattle*)
+ currentSoybeanLand = 37;
+currentBeefLand = 162;
 
-(*From this we can now estimate the total deforestation that would \
-take place until 2050 to meet Chinese demand for soybeans and beef*)
- \
-
-deforestedLand = ((chineseSoybeanDemand/projectedSoybeanYield) - 
-      currentSoybeanLand)*
-    soybeanDeforestationRate + ((chineseBeefDemand/
-        projectedBeefYield) - currentBeefLand)*beefDeforestationRate;
+soybeanDeforestationRate = ; (*need to get proximates for this: how \
+much Amazon would be cleared for one hectare of additional hectare of \
+soybeans*)
+beefDeforestationRate = ; (*need to get proximates for \
+this: how much Amazon would be cleared for one hectare of additional \
+hectare of cattle ranching*)
+deforestedLandperYear = \
+((chineseSoybeanDemand/projectedSoybeanYield) - currentSoybeanLand)*
+   soybeanDeforestationRate + ((chineseBeefDemand/
+       projectedCattleProductivity) - currentBeefLand)*
+   beefDeforestationRate;
  
 (*From this we can also estimate the CO2 emissions that would result \
 from this deforestation, taking into account emissions from the beef \
 and soybean sectors as well as from the deforestation*)
 
-emissionsDeforestation = ;
-emissionsBeef = ;
-emissionsSoybeans = ;
+emissionsDeforestation = 
+ deforestedLandperYear*
+  Amazonemissionrate; (*need to get proximates for the second one: \
+how much CO2 emissions come from one hectare of deforested Amazon*)
+\
+emissionsBeef = 
+ chineseDemandCattle*
+  emissionsCattle; (*need to get proximates for this: how much CO2 \
+emissions come from one tonne of produced beef*)
+emissionsSoybeans = 
+ chineseDemandSoybeans*
+  emissionsSoybeans; (*need to get proximates for this: how much CO2 \
+emissions come from one tonne of produced soybeans*)
 
 totalEmissions = 
  emissionsDeforestation + emissionsBeef + emissionsSoybeans
 
 
-(*We also want to calulate the output from meeting Chinese demand. We \
-could do this by defining the output as a function dependent on \
-Chinese demand, current output, minus the cost of deforestation \
-(which might be an exponential function since the higher the \
-deforestation the more consequences this has for the economy). A lot \
-more features could be added but this would be relatively simple to \
-start with*)
+(*Now we will distinguish between 3 policy scenarios and their \
+consequences for economic output, deforestation and CO2 emissions. In \
+the first scenario,  no policy is introduced for deforesting the \
+Amazon and a discount rate of 6% is assumed, reflecting minor \
+consideration for intergenerational equity. In the second scenario, \
+we again assume no policy introduced for deforesting the Amazon but a \
+discount rate of 2%, reflecting more consideration for \
+intergenrational equity and what 'is believed to be closest to the \
+rate a global social planner
+would choose'. The third scenario introduces a policy that deters \
+from deforestation completely (and assumes this can be enforced \
+effectively) and also takes a discount rate of 2%.*)
+
+(*Scenario 1*)
+
+years = Range[2022, 2050];
+(*value from first model*)soybeanDemandSlope = 10000;
+(*value from second model*)cattleDemandSlope = 5000;
+
+historicalTradeSurplus = 10000000; (*need to get proximates for this: \
+how much output has been generated for one tonne (or more) of \
+exported soybeans and cattle*)
+
+(*cost of deforestation is based on the estimates of the total \
+ecoomic value of a standing rainforest in \
+https://www.econstor.eu/bitstream/10419/220154/1/dp_065.pdf for a 6% \
+discount rate*)
+deforestationCostPerHectare1 = 4481;
+
+(*Chinese demand functions for soybeans and cattle: this will come \
+from the first model*)
+
+chineseDemandSoybeans[year_] := soybeanDemandSlope*(year - 2021);
+chineseDemandCattle[year_] := cattleDemandSlope*(year - 2021);
+
+(*Deforestation cost functions*)
+
+deforestationCost1[] := 
+  deforestationCostPerHectare1*deforestedLandperYear;
+
+(*Economic impact calculation*)
+
+economicImpact[
+   year_] := (chineseDemandSoybeans[year] + 
+      chineseDemandCattle[year])*historicalTradeSurplus - 
+   deforestationCost[year];
+
